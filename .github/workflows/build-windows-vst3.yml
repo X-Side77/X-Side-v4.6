@@ -1,0 +1,54 @@
+name: Build X-Side VST3 v4.6 No MIDI
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S . -B build -A x64
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Prepare Artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+
+          $vst = Get-ChildItem -Path build -Recurse -Filter "X-Side.vst3" |
+                 Select-Object -First 1
+
+          if (-not $vst) {
+            throw "X-Side.vst3 not found."
+          }
+
+          Write-Host "Found VST3:"
+          Write-Host $vst.FullName
+
+          Copy-Item -Recurse -Force `
+            $vst.FullName `
+            "artifact\X-Side.vst3"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: X-Side-v4.6-NoMidi-Windows-x64
+          path: artifact/X-Side.vst3
+          if-no-files-found: error
+          retention-days: 30
